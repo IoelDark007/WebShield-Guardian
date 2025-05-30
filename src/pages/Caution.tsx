@@ -9,7 +9,10 @@ const CautionPage: React.FC = () => {
             setCountdown((prev) => {
                 if (prev <= 1) {
                     clearInterval(interval);
-                    if (targetURL) window.location.href = targetURL;
+                    if (targetURL) {
+                        chrome.tabs.update({ url: targetURL });
+                        console.log("redirecting to:", targetURL);
+                    }
                     return 0;
                 }
                 return prev - 1;
@@ -20,7 +23,12 @@ const CautionPage: React.FC = () => {
     }, [targetURL]);
 
     const handleProceed = () => {
-        if (targetURL) window.location.href = targetURL;
+        if (targetURL) {
+            // Send message to background to allow this URL for the session
+            chrome.runtime.sendMessage({ action: "allowUrl", url: targetURL }, () => {
+                chrome.tabs.update({ url: targetURL });
+            });
+        }
     };
 
     const handleGoBack = () => {
@@ -30,10 +38,13 @@ const CautionPage: React.FC = () => {
     return (
         <div className="fixed inset-0 bg-amber-500 overflow-hidden flex flex-col items-center justify-center p-6">
             {/* Caution symbol with subtle pulse */}
-            <div className="mb-8 animate-[pulse_2s_ease-in-out_infinite]">
+            <div className="mb-8 flex items-center justify-center relative animate-[pulse_2s_ease-in-out_infinite]">
+                {/* Glowing animated circle */}
+                <div className="absolute inset-0 z-0 rounded-full bg-yellow-400 animate-ping opacity-30 scale-125"></div>
+                {/* Caution SVG icon */}
                 <svg 
                     xmlns="http://www.w3.org/2000/svg" 
-                    className="h-24 w-24 text-black" 
+                    className="h-24 w-24 text-black z-10" 
                     fill="none" 
                     viewBox="0 0 24 24" 
                     stroke="currentColor"

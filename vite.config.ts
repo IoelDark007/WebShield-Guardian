@@ -29,6 +29,7 @@ export default defineConfig({
         warning: path.resolve(__dirname, 'warning.html'), // Add warning.html
         caution: path.resolve(__dirname, 'caution.html'), // Add caution.html
         educational: path.resolve(__dirname, 'education.html'), // Add education.html
+        game: path.resolve(__dirname, 'game.html'), // Add game.html
       },
       output: {
         entryFileNames: '[name].js',

@@ -18,8 +18,18 @@ let flaggedWebsitesCount: number = 0;
 let isActive: boolean = true;
 let apiIsHealthy: boolean = false;
 
+// Normalize URL for consistent comparison
+function normalizeUrl(url: string): string {
+    try {
+        const u = new URL(url);
+        return u.origin + u.pathname;
+    } catch {
+        return url;
+    }
+}
+
 // Add this helper function at the top or near handleRedirection
-function isWhitelistedUrl(url: string): boolean {
+function isWhitelistedUrl(url: string, callback?: (isWhite: boolean) => void): boolean | void {
   // Chrome internal pages, Edge, Firefox, Opera, etc.
   if (
     url.startsWith('chrome://') ||
@@ -30,6 +40,15 @@ function isWhitelistedUrl(url: string): boolean {
     url.startsWith('opera://') ||
     url.startsWith('http://localhost')
   ) return true;
+
+  // Dynamic session whitelist check
+  if (callback) {
+    chrome.storage.session.get({ whitelistedUrls: [] }, (result) => {
+      const normalized = normalizeUrl(url);
+      callback((result.whitelistedUrls || []).includes(normalized));
+    });
+    return;
+  }
 
   // PDF files
   if (url.match(/\.pdf(\?|#|$)/i)) return true;
@@ -89,65 +108,77 @@ async function checkAPIHealth(): Promise<void> {
 
 // Function to handle redirection based on confidence level
 async function handleRedirection(url: string): Promise<void> {
-  if (isWhitelistedUrl(url)) return;
-
-  // Increment total websites visited
-  totalWebsitesVisited++;
-  chrome.storage.sync.set({ totalWebsitesVisited });
-
-  // --- Check against phishingUrls list first ---
-  const urlDomain = extractDomain(url).domain;
-  if (phishingUrls.some(phishUrl => {
-    try {
-      // Compare domains for flexibility
-      return extractDomain(phishUrl).domain === urlDomain;
-    } catch {
-      return false;
+  // Check if user has allowed this URL
+  chrome.storage.session.get('allowed_' + url, async (result) => {
+    if (result['allowed_' + url]) {
+      // User has chosen to proceed, do not warn again
+      return;
     }
-  })) {
-    flaggedWebsitesCount++;
-    chrome.storage.sync.set({ flaggedWebsitesCount });
-    chrome.tabs.update({ url: chrome.runtime.getURL("warning.html") });
-    showNotification(
-      "Phishing Site Blocked",
-      "We've blocked this dangerous phishing site"
-    );
-    return; // Stop further checks
-  }
 
-  try {
-    const { isPhishing, confidence } = await checkUrlWithAPI(url);
+    if (isWhitelistedUrl(url)) return;
 
-    if (isPhishing) {
-      // Increment flagged websites count
+    // Increment total websites visited
+    totalWebsitesVisited++;
+    chrome.storage.sync.set({ totalWebsitesVisited });
+
+    // --- Check against phishingUrls list first ---
+    const urlDomain = extractDomain(url).domain;
+    if (phishingUrls.some(phishUrl => {
+      try {
+        // Compare domains for flexibility
+        return extractDomain(phishUrl).domain === urlDomain;
+      } catch {
+        return false;
+      }
+    })) {
       flaggedWebsitesCount++;
       chrome.storage.sync.set({ flaggedWebsitesCount });
-
-      if (confidence >= CONFIDENCE_LEVELS.HIGH) {
-        chrome.tabs.update({ url: chrome.runtime.getURL("warning.html") });
-        showNotification(
-          "Phishing Site Blocked",
-          "We've blocked this dangerous phishing site"
-        );
-      } else if (confidence >= CONFIDENCE_LEVELS.MEDIUM) {
-        chrome.tabs.update({ url: chrome.runtime.getURL("caution.html") });
-        showNotification(
-          "Suspicious Site Detected",
-          "This site shows suspicious characteristics"
-        );
-      }
+      chrome.tabs.update({ url: chrome.runtime.getURL("warning.html") });
+      showNotification(
+        "Phishing Site Blocked",
+        "We've blocked this dangerous phishing site"
+      );
+      return; // Stop further checks
     }
-  } catch (error) {
-    console.error("Error handling redirection:", error);
-  }
+
+    try {
+      const { isPhishing, confidence } = await checkUrlWithAPI(url);
+
+      if (isPhishing) {
+        // Increment flagged websites count
+        flaggedWebsitesCount++;
+        chrome.storage.sync.set({ flaggedWebsitesCount });
+
+        if (confidence >= CONFIDENCE_LEVELS.HIGH) {
+          chrome.tabs.update({ url: chrome.runtime.getURL("warning.html") });
+          showNotification(
+            "Phishing Site Blocked",
+            "We've blocked this dangerous phishing site"
+          );
+        } else if (confidence >= CONFIDENCE_LEVELS.MEDIUM) {
+          chrome.tabs.update({ url: chrome.runtime.getURL("caution.html") + "?url=" + encodeURIComponent(url) });
+          showNotification(
+            "Suspicious Site Detected",
+            "This site shows suspicious characteristics"
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error handling redirection:", error);
+    }
+  });
 }
 
 // Listen for tab updates to check URLs
 chrome.tabs.onUpdated.addListener((_tabId, changeInfo) => {
-  if (changeInfo.url && isActive) {
-    if (isWhitelistedUrl(changeInfo.url)) return; // <-- Skip whitelisted URLs
-    handleRedirection(changeInfo.url);
-  }
+    if (changeInfo.url && isActive) {
+        isWhitelistedUrl(changeInfo.url, (isWhite) => {
+            if (isWhite) return;
+            if (changeInfo.url) {
+                handleRedirection(changeInfo.url);
+            }
+        });
+    }
 });
 
 // Initialize extension state
@@ -275,7 +306,7 @@ async function checkUrlWithAPI(url: string): Promise<{ isPhishing: boolean; conf
 }
 
 // Handle messages from popup
-chrome.runtime.onMessage.addListener((request: { action: string }, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request: { action: string, url?: string }, _sender, sendResponse) => {
   switch (request.action) {
     case "activate":
       isActive = true;
@@ -309,6 +340,15 @@ chrome.runtime.onMessage.addListener((request: { action: string }, _sender, send
         });
       });
       return true;
+
+    case "allowUrl":
+      if (request.url) {
+        chrome.storage.session.set({ ['allowed_' + request.url]: true }, () => {
+          sendResponse({ allowed: true });
+        });
+        return true; // Keep the message channel open for async response
+      }
+      break;
 
     default:
       sendResponse({ error: "Unknown action" });

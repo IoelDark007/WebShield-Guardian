@@ -183,6 +183,24 @@ const EduPage: React.FC = () => {
         <img src="/images/info.jpg" alt="How does Phishing work?" className="w-[500px] h-[500px]" />
       </div>
 
+      {/* Quiz Section */}
+      <div className="relative flex w-full rounded-2xl justify-center mb-8">
+        <div className="relative flex flex-col items-center justify-center bg-gradient-to-r from-blue-300 to-blue-200 text-gray-800 p-6 w-full">
+          <div className="w-full max-w-3xl flex flex-col items-center">
+            <h2 className="text-2xl font-bold text-blue-700 mb-4 text-center">
+              Wanna test your knowledge in cyber security? Only takes 5 mins!
+            </h2>
+            <a
+              href="/game.html"
+              className="mt-4 bg-blue-700 hover:bg-blue-900 text-white font-semibold py-2 px-8 rounded-full shadow transition"
+            >
+              Take Quiz
+            </a>
+          </div>
+        </div>
+        <img src="/images/subscribe.jpg" alt="Cybersecurity Quiz" className="w-[500px] h-[500px] rounded-2xl rounded-l-none rounded-br-none" />
+      </div>
+
       {/* Subscription Section */}
       <section className="w-full flex justify-center py-12 bg-gradient-to-r from-blue-100 to-blue-200">
         <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl p-8 flex flex-col gap-8">
