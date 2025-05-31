@@ -1,54 +1,88 @@
-# React + TypeScript + Vite
+# WebShield Guardian – Anti-Phishing Browser Extension
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+WebShield Guardian is a browser extension that provides real-time protection against phishing attacks. It uses a combination of a local phishing URL blocklist and a machine learning API to detect and block malicious websites before they can compromise your security.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Real-Time Phishing Detection:**  
+  Monitors every website you visit and checks it against a maintained phishing URL list and a remote ML-based phishing detection API.
 
-## Expanding the ESLint configuration
+- **Automatic Blocking:**  
+  - **High Confidence:** If a site is confirmed as phishing, you are redirected to a warning page and notified.
+  - **Medium Confidence:** If a site is suspicious, you are shown a caution page with the option to proceed.
+  - **Low Confidence:** No action is taken.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **Session Whitelisting:**  
+  If you choose to proceed to a suspicious site, it is whitelisted for your session, and you will not be warned again for that URL.
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+- **Statistics:**  
+  Tracks the number of websites visited and threats blocked, visible in the extension popup.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+- **Notifications:**  
+  Shows browser notifications when a phishing or suspicious site is detected.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- **API Health Monitoring:**  
+  Periodically checks the health of the phishing detection API.
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+## How It Works
+
+1. **URL Monitoring:**  
+   The extension listens for tab updates. When a new URL is loaded, it checks if the extension is active and if the URL is not whitelisted or internal.
+
+2. **Phishing URL Blocklist:**  
+   Loads a list of known phishing URLs from `phishing_urls.json` and blocks any matches immediately.
+
+3. **Machine Learning API:**  
+   If the URL is not in the blocklist, the extension extracts features from the URL and sends them to a remote API for phishing prediction.
+
+4. **Redirection & Notification:**  
+   - If the API returns a high-confidence phishing result, the user is redirected to a warning page.
+   - For medium confidence, a caution page is shown.
+   - Notifications are displayed for both cases.
+
+5. **User Actions:**  
+   Users can activate/deactivate the extension, view statistics, and allow specific URLs for the session.
+
+## Development
+
+### Prerequisites
+
+- Node.js
+- Chrome or Chromium-based browser
+
+### Setup
+
+1. **Install dependencies:**
+   ```sh
+   npm install
+   ```
+
+2. **Run in development mode:**
+   ```sh
+   npm run dev
+   ```
+
+3. **Build for production:**
+   ```sh
+   npm run build
+   ```
+
+4. **Load the extension:**
+   - Build the project.
+   - Go to `chrome://extensions` and enable "Developer mode".
+   - Click "Load unpacked" and select the `dist` folder.
+
+### Configuration
+
+- **Phishing API Endpoint:**  
+  Set the API endpoint in [`src/background/background.ts`](src/background/background.ts) via the `API_ENDPOINT` constant.
+
+- **Phishing URL List:**  
+  Update `phishing_urls.json` in the project root to maintain the blocklist.
+
+## File Structure
+
+- [`src/background/background.ts`](src/background/background.ts): Main background script with detection logic.
+- [`phishing_urls.json`](phishing_urls.json): List of known phishing URLs.
+- [`src/pages/`](src/pages/): React components for popup, warning, caution, and educational pages.
+- [`public/manifest.json`](public/manifest.json): Chrome extension manifest.
